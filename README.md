@@ -81,7 +81,7 @@ unzip acs-engine-v0.8.0-linux-amd64.zip
 mv acs-engine-v0.8.0-linux-amd64/acs-engine .
 ```
 
-## Build cluster and copy kubectl configuratio file
+## Build cluster and copy kubectl configuration file
 We will build multiple clusters to show some additional options, but majority of this demo runs on first one.
 
 ### Mixed cluster with standard ACS networking
@@ -92,7 +92,7 @@ Our first cluster will be hybrid Linux and Windows agents, with RBAC enabled and
 cd _output/myKubeACS/
 az group create -n mykubeacs -l westeurope
 az group deployment create --template-file azuredeploy.json --parameters @azuredeploy.parameters.json -g mykubeacs
-scp tomas@mykubeacs.westeurope.cloudapp.azure.com:.kube/config ~/.kube/config
+scp azureuser@mykubeacs.westeurope.cloudapp.azure.com:.kube/config ~/.kube/config
 ```
 
 ### Cluster with Azure Networking CNI
@@ -103,16 +103,16 @@ In this cluster we will use Azure Networkin CNI plugin. This allows pods to use 
 cd _output/myKubeAzureNet/
 az group create -n mykubeazurenet -l westeurope
 az group deployment create --template-file azuredeploy.json --parameters @azuredeploy.parameters.json -g mykubeazurenet
-scp tomas@mykubeazurenet.westeurope.cloudapp.azure.com:.kube/config ~/.kube/config-azurenet
+scp azureuser@mykubeazurenet.westeurope.cloudapp.azure.com:.kube/config ~/.kube/config-azurenet
 ```
 
 ### Create VM for testing
 ```
 export vnet=$(az network vnet list -g mykubeacs --query [].name -o tsv)
 
-az vm create -n myvm -g mykubeacs --admin-username tomas --ssh-key-value "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFhm1FUhzt/9roX7SmT/dI+vkpyQVZp3Oo5HC23YkUVtpmTdHje5oBV0LMLBB1Q5oSNMCWiJpdfD4VxURC31yet4mQxX2DFYz8oEUh0Vpv+9YWwkEhyDy4AVmVKVoISo5rAsl3JLbcOkSqSO8FaEfO5KIIeJXB6yGI3UQOoL1owMR9STEnI2TGPZzvk/BdRE73gJxqqY0joyPSWOMAQ75Xr9ddWHul+v//hKjibFuQF9AFzaEwNbW5HxDsQj8gvdG/5d6mt66SfaY+UWkKldM4vRiZ1w11WlyxRJn5yZNTeOxIYU4WLrDtvlBklCMgB7oF0QfiqahauOEo6m5Di2Ex" --image UbuntuLTS --nsg "" --vnet-name $vnet --subnet k8s-subnet --public-ip-address-dns-name mykubeextvm --size Basic_A0
+az vm create -n myvm -g mykubeacs --admin-username azureuser --ssh-key-value "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDFhm1FUhzt/9roX7SmT/dI+vkpyQVZp3Oo5HC23YkUVtpmTdHje5oBV0LMLBB1Q5oSNMCWiJpdfD4VxURC31yet4mQxX2DFYz8oEUh0Vpv+9YWwkEhyDy4AVmVKVoISo5rAsl3JLbcOkSqSO8FaEfO5KIIeJXB6yGI3UQOoL1owMR9STEnI2TGPZzvk/BdRE73gJxqqY0joyPSWOMAQ75Xr9ddWHul+v//hKjibFuQF9AFzaEwNbW5HxDsQj8gvdG/5d6mt66SfaY+UWkKldM4vRiZ1w11WlyxRJn5yZNTeOxIYU4WLrDtvlBklCMgB7oF0QfiqahauOEo6m5Di2Ex" --image UbuntuLTS --nsg "" --vnet-name $vnet --subnet k8s-subnet --public-ip-address-dns-name mykubeextvm --size Basic_A0
 
-ssh tomas@mykubeextvm.westeurope.cloudapp.azure.com
+ssh azureuser@mykubeextvm.westeurope.cloudapp.azure.com
 ```
 
 ### Access GUI
@@ -205,7 +205,7 @@ kubectl exec -ti postgresql-0 -- psql -Upostgres
 CREATE TABLE mytable (
     name        varchar(50)
 );
-INSERT INTO mytable(name) VALUES ('Tomas Kubica');
+INSERT INTO mytable(name) VALUES ('Azure User');
 SELECT * FROM mytable;
 \q
 ```
@@ -224,7 +224,7 @@ kubectl delete -f statefulSetPVC.yaml
 
 Go to GUI and map IaaS Volume to VM, then mount it and show content.
 ```
-ssh tomas@mykubeextvm.westeurope.cloudapp.azure.com
+ssh azureuser@mykubeextvm.westeurope.cloudapp.azure.com
 ls /dev/sd*
 sudo mkdir /data
 sudo mount /dev/sdc /data
@@ -243,22 +243,22 @@ kubectl delete pvc postgresql-volume-claim-postgresql-0
 ### Create Azure Container Registry
 ```
 az group create -n mykuberegistry -l westeurope
-az acr create -g mykuberegistry -n tomascontainers --sku Managed_Standard --admin-enabled true
-az acr credential show -n tomascontainers -g mykuberegistry
-export acrpass=$(az acr credential show -n tomascontainers -g mykuberegistry --query [passwords][0][0].value -o tsv)
+az acr create -g mykuberegistry -n mycontainers --sku Managed_Standard --admin-enabled true
+az acr credential show -n mycontainers -g mykuberegistry
+export acrpass=$(az acr credential show -n mycontainers -g mykuberegistry --query [passwords][0][0].value -o tsv)
 ```
 
 ### Push images to registry
 ```
 docker.exe images
-docker.exe tag tkubica/web:1 tomascontainers.azurecr.io/web:1
-docker.exe tag tkubica/web:2 tomascontainers.azurecr.io/web:2
-docker.exe tag tkubica/web:1 tomascontainers.azurecr.io/private/web:1
-docker.exe login -u tomascontainers -p $acrpass tomascontainers.azurecr.io
-docker.exe push tomascontainers.azurecr.io/web:1
-docker.exe push tomascontainers.azurecr.io/web:2
-docker.exe push tomascontainers.azurecr.io/private/web:1
-az acr repository list -n tomascontainers -o table
+docker.exe tag tkubica/web:1 mycontainers.azurecr.io/web:1
+docker.exe tag tkubica/web:2 mycontainers.azurecr.io/web:2
+docker.exe tag tkubica/web:1 mycontainers.azurecr.io/private/web:1
+docker.exe login -u mycontainers -p $acrpass mycontainers.azurecr.io
+docker.exe push mycontainers.azurecr.io/web:1
+docker.exe push mycontainers.azurecr.io/web:2
+docker.exe push mycontainers.azurecr.io/private/web:1
+az acr repository list -n mycontainers -o table
 ```
 
 ### Run Kubernetes Pod from Azure Container Registry
@@ -270,9 +270,9 @@ kubectl create -f podACR.yaml
 ```
 kubectl delete -f clusterRoleBindingUser1.yaml
 az group delete -n mykuberegistry -y --no-wait
-docker.exe rmi tomascontainers.azurecr.io/web:1
-docker.exe rmi tomascontainers.azurecr.io/web:2
-docker.exe rmi tomascontainers.azurecr.io/private/web:1
+docker.exe rmi mycontainers.azurecr.io/web:1
+docker.exe rmi mycontainers.azurecr.io/web:2
+docker.exe rmi mycontainers.azurecr.io/private/web:1
 
 ```
 
@@ -326,44 +326,6 @@ podTemplate(label: 'mypod') {
 Build project in Jenkins and watch containers to spin up and down.
 ```
 kubectl get pods -o wide -w
-```
-
-
-# Draft
-## Install Traefik and create DNS entry
-```
-helm fetch --untar stable/traefik
-```
-Modify deployment template to deploy to linuxpool:
-```
-      nodeSelector:
-        agentpool: linuxpool
-```
-```
-cd traefik
-helm install . --name ingress
-kubectl get service ingress-traefik
-export draftip=$(kubectl get service ingress-traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-export oldip=$(az network dns record-set a show -n *.draft -g shared-services -z azure.tomaskubica.cz --query arecords[0].ipv4Address -o tsv)
-az network dns record-set a remove-record -a $oldip -n *.draft -g shared-services -z azure.tomaskubica.cz
-az network dns record-set a add-record -n *.draft -a $draftip -g shared-services -z azure.tomaskubica.cz
-```
-
-## Install Draft
-```
-wget https://github.com/Azure/draft/releases/download/v0.7.0/draft-v0.7.0-linux-amd64.tar.gz
-tar -xvf draft-v0.7.0-linux-amd64.tar.gz
-sudo mv linux-amd64/draft /usr/bin/
-
-cd nodeapp
-draft create
-```
-
-## Run
-```
-cd nodeapp
-draft up
-draft connect
 ```
 
 # Monitoring
