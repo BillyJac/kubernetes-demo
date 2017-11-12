@@ -119,6 +119,8 @@ ssh azureuser@mykubeextvm.westeurope.cloudapp.azure.com
 ```
 
 ### Access GUI
+On your local machine, install kubectl (https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-binary-via-curl). And run the GUI.
+
 ```
 kubectl proxy
 ```
