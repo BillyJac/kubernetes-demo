@@ -22,7 +22,7 @@
       }
     ],
     "linuxProfile": {
-      "adminUsername": "tomas",
+      "adminUsername": "azureuser",
       "ssh": {
         "publicKeys": [
           {
