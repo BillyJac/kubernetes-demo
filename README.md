@@ -12,7 +12,6 @@ This repo contains my Kubernetes demo in Azure.
     - [Build cluster and copy kubectl configuratio file](#build-cluster-and-copy-kubectl-configuratio-file)
         - [Mixed cluster with standard ACS networking](#mixed-cluster-with-standard-acs-networking)
         - [Cluster with Azure Networking CNI](#cluster-with-azure-networking-cni)
-        - [Cluster with Calico networking policy](#cluster-with-calico-networking-policy)
         - [Create VM for testing](#create-vm-for-testing)
         - [Access GUI](#access-gui)
 - [Using stateless app farms in mixed environment](#using-stateless-app-farms-in-mixed-environment)
@@ -31,35 +30,6 @@ This repo contains my Kubernetes demo in Azure.
     - [Destroy Pod and make sure StatefulSet recovers and data are still there](#destroy-pod-and-make-sure-statefulset-recovers-and-data-are-still-there)
     - [Continue in Azure](#continue-in-azure)
     - [Clean up](#clean-up)
-- [RBAC with AAD and ACR](#rbac-with-aad-and-acr)
-    - [Create namespace with some Pod](#create-namespace-with-some-pod)
-    - [Create RBAC credentials and RoleBinding](#create-rbac-credentials-and-rolebinding)
-    - [Create configuration context and switch to it](#create-configuration-context-and-switch-to-it)
-    - [Test RBAC](#test-rbac)
-        - [Make sure user can read Pods](#make-sure-user-can-read-pods)
-        - [Make sure user can create Pod](#make-sure-user-can-create-pod)
-        - [Check, that user cannot create other objects](#check-that-user-cannot-create-other-objects)
-        - [Check, that user cannot delete Pods](#check-that-user-cannot-delete-pods)
-        - [Check, that user has no access to different namespaces](#check-that-user-has-no-access-to-different-namespaces)
-        - [Switch back to default namespace and clean up](#switch-back-to-default-namespace-and-clean-up)
-    - [Custom registry](#custom-registry)
-        - [Create Azure Container Registry](#create-azure-container-registry)
-        - [Push images to registry](#push-images-to-registry)
-        - [Run Kubernetes Pod from Azure Container Registry](#run-kubernetes-pod-from-azure-container-registry)
-    - [Clean up](#clean-up)
-- [ACI Connector (SuperMario example)](#aci-connector-supermario-example)
-    - [Create resource gorup](#create-resource-gorup)
-    - [Assign RBAC to default service account](#assign-rbac-to-default-service-account)
-    - [Deploy ACI Connector](#deploy-aci-connector)
-    - [Deploy pod to ACI](#deploy-pod-to-aci)
-    - [Clean up](#clean-up)
-- [Networking](#networking)
-    - [Azure CNI](#azure-cni)
-    - [Network policy with Calico](#network-policy-with-calico)
-        - [I will reference my kubectl config pointing to Calico-enabled cluster](#i-will-reference-my-kubectl-config-pointing-to-calico-enabled-cluster)
-        - [Create web and db pod](#create-web-and-db-pod)
-        - [Make sure web can both ping and mysql to db pod](#make-sure-web-can-both-ping-and-mysql-to-db-pod)
-        - [Create network policy to allow mysql communication only](#create-network-policy-to-allow-mysql-communication-only)
 - [Helm](#helm)
     - [Install](#install)
     - [Run Wordpress](#run-wordpress)
@@ -68,17 +38,12 @@ This repo contains my Kubernetes demo in Azure.
     - [Install Jenkins to cluster via Helm](#install-jenkins-to-cluster-via-helm)
     - [Configure Jenkins and its pipeline](#configure-jenkins-and-its-pipeline)
     - [Run "build"](#run-build)
-- [Draft](#draft)
-    - [Install Traefik and create DNS entry](#install-traefik-and-create-dns-entry)
-    - [Install Draft](#install-draft)
-    - [Run](#run)
 - [Monitoring](#monitoring)
     - [Prepare Log Analytics / OMS](#prepare-log-analytics-oms)
     - [Deploy agent](#deploy-agent)
     - [Generate message in app](#generate-message-in-app)
     - [Log Analytics](#log-analytics)
     - [Clean up](#clean-up)
-- [Author](#author)
 
 # Azure Container Instance demo
 Before we start with Kubernetes let see Azure Container Instances. This is top level resource in Azure so you don't have to create (and pay for) any VM, just create container directly and pay by second. In this demo we will deploy Microsoft SQL Server in Linux container.
@@ -139,17 +104,6 @@ cd _output/myKubeAzureNet/
 az group create -n mykubeazurenet -l westeurope
 az group deployment create --template-file azuredeploy.json --parameters @azuredeploy.parameters.json -g mykubeazurenet
 scp tomas@mykubeazurenet.westeurope.cloudapp.azure.com:.kube/config ~/.kube/config-azurenet
-```
-
-### Cluster with Calico networking policy
-In this cluster we deploy Calico to implement networking policy. This is Kubernetes option to handle microsegmentation - L4 firewalling between pods.
-
-```
-./acs-engine generate myKubeCalico.json 
-cd _output/myKubeCalico/
-az group create -n mykubecalico -l westeurope
-az group deployment create --template-file azuredeploy.json --parameters @azuredeploy.parameters.json -g mykubecalico
-scp tomas@mykubecalico.westeurope.cloudapp.azure.com:.kube/config ~/.kube/config-calico
 ```
 
 ### Create VM for testing
@@ -285,66 +239,6 @@ Detach in GUI
 kubectl delete pvc postgresql-volume-claim-postgresql-0
 ```
 
-# RBAC with AAD and ACR
-When using Kubernetes in enterprise there might be need to role based access control and strong authentication. In this demo we will see how to to use namespaces in Kubernetes to isolate resources from control plane level, how to authenticate user with strong Azure Active Directory authentication and how to authorize what each user can do with Kubernetes RBAC. Also we will look into private registry, how to secure it and make sure company provided images are used.
-
-## Create namespace with some Pod
-```
-kubectl create namespace rbac
-kubectl create -f podUbuntu.yaml --namespace rbac
-kubectl get pods
-kubectl get pods --namespace rbac
-```
-
-## Create RBAC credentials and RoleBinding
-Provide correct credentials like client-id, tenant-id etc. Also in roleBindingUser1.yaml make sure you replace first UUID with your directory-id (AAD domain id) and after # use id of user being used (in my case id of user1@tomsakubica.cz).
-```
-. rbacConfig
-kubectl config set-credentials "user1@tomaskubica.cz" --auth-provider=azure --auth-provider-arg=environment=AzurePublicCloud --auth-provider-arg=client-id=$clientid --auth-provider-arg=tenant-id=$tenantid --auth-provider-arg=apiserver-id=$apiserverid 
-
-kubectl create -f myrole.yaml
-kubectl create -f roleBindingUser1.yaml
-```
-
-## Create configuration context and switch to it
-
-```
-kubectl config set-context rbac --namespace rbac --cluster mykubeacs --user user1@tomaskubica.cz
-kubectl config use-context rbac
-```
-
-## Test RBAC
-### Make sure user can read Pods
-```
-kubectl get pods
-```
-
-### Make sure user can create Pod
-```
-kubectl create -f podNetWeb.yaml
-```
-
-### Check, that user cannot create other objects
-```
-kubectl create -f serviceWeb.yaml
-```
-
-### Check, that user cannot delete Pods
-```
- kubectl delete pod ubuntu
-```
-
-### Check, that user has no access to different namespaces
-```
-kubectl get pods --namespace default
-```
-
-### Switch back to default namespace and clean up
-```
-kubectl config use-context mykubeacs
-kubectl delete namespace rbac
-```
-
 ## Custom registry
 ### Create Azure Container Registry
 ```
@@ -380,76 +274,6 @@ docker.exe rmi tomascontainers.azurecr.io/web:1
 docker.exe rmi tomascontainers.azurecr.io/web:2
 docker.exe rmi tomascontainers.azurecr.io/private/web:1
 
-```
-
-# ACI Connector (SuperMario example)
-As show in first example Azure Container Instance (in preview) can be used as top level resources. Azure can run containers directly without need to do so in VMs. There is experimental connector available so that Azure behaves like Kubernetes node with infinite capacity. In this demo we will install this connector and schedule pod to run on this infinite node reprezentaion of Azure.
-
-## Create resource gorup
-```
-az group create -n aci-connect -l eastus
-```
-
-## Assign RBAC to default service account
-```
-kubectl create -f clusterRoleBindingService.yaml
-```
-
-## Deploy ACI Connector
-```
-kubectl create -f aciConnector.yaml
-kubectl get nodes
-```
-
-## Deploy pod to ACI
-```
-kubectl create -f podACI.yaml
-kubectl get pods -o wide
-az container list -g aci-connect -o table
-```
-Connect to IP on port 8080
-
-## Clean up
-```
-kubectl delete -f podACI.yaml
-kubectl delete -f aciConnector.yaml
-kubectl delete -f clusterRoleBindingService.yaml
-```
-
-# Networking
-We have seen a lot of networking already: internal ballancing and service discovery, external balancing with automatic integration to Azure Load Balancer with public IP, communication between pods in container etc. In this section we will focus on some other aspects namely networking policy.
-
-## Azure CNI
-In Azure CNI cluster demonstrate how containers take IP addresses directly from VNET. Access pod directly from VM deployed in the same VNET.
-
-## Network policy with Calico
-Calico is plugin that implements Kubernetes network policy, namely microsegmentation (L4 filtering between pods). In this demo we will create Web and DB and provide strict policy what and how can communicate.
-
-### I will reference my kubectl config pointing to Calico-enabled cluster
-```
-. calico.rc
-```
-
-### Create web and db pod
-```
-kubectl create -f podNetWeb.yaml
-kubectl create -f podNetDB.yaml
-kubectl exec net-web ip a
-kubectl exec net-db ip a
-```
-
-### Make sure web can both ping and mysql to db pod
-```
-export dbip=$(kubectl get pod net-db -o json | jq -r '.status.podIP')
-kubectl exec -ti net-web -- mysql -h $dbip -uroot -pAzure12345678
-kubectl exec -ti net-web -- ping -c 3 $dbip
-```
-
-### Create network policy to allow mysql communication only
-```
-kubectl create -f networkPolicy.yaml
-kubectl exec -ti net-web -- mysql -h $dbip -uroot -pAzure12345678
-kubectl exec -ti net-web -- ping -c 3 $dbip
 ```
 
 # Helm
@@ -574,10 +398,3 @@ Perf
 kubectl delete -f podUbuntu.yaml
 kubectl delete -f daemonSetOMS.yaml
 ```
-
-# Author
-Tomas Kubica, linkedin.com/in/tkubica, Twittter: @tkubica
-
-Blog in Czech: https://tomaskubica.cz
-
-Looking forward for your feedback and suggestions!
