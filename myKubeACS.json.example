@@ -31,7 +31,7 @@
       }
     ],
     "linuxProfile": {
-      "adminUsername": "tomas",
+      "adminUsername": "azureuser",
       "ssh": {
         "publicKeys": [
           {
@@ -41,7 +41,7 @@
       }
     },
     "windowsProfile": {
-        "adminUsername": "tomas",
+        "adminUsername": "azureuser",
         "adminPassword": "xxx-xxx"
     },
     "servicePrincipalProfile": {
