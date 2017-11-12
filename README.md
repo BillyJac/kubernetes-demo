@@ -187,7 +187,7 @@ Make sure volume is visible in Azure.
 
 Clean up.
 ```
-kubectl delete -f persistentVolumeClaim.aml
+kubectl delete -f persistentVolumeClaim.yaml
 ```
 
 ## Create StatefulSet with Volume template for Postgresql
