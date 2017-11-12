@@ -24,7 +24,7 @@ This repo contains my Kubernetes demo in Azure.
         - [Connect via internal service endpoint](#connect-via-internal-service-endpoint)
     - [Clean up](#clean-up)
 - [Stateful applications and StatefulSet with Persistent Volume](#stateful-applications-and-statefulset-with-persistent-volume)
-    - [Check storage class and create Persistent Volume](#check-storage-class-and-create-persistent-volume)
+     - [Check storage class and create Persistent Volume](#check-storage-class-and-create-persistent-volume)
     - [Create StatefulSet with Volume template for Postgresql](#create-statefulset-with-volume-template-for-postgresql)
     - [Connect to PostgreSQL](#connect-to-postgresql)
     - [Destroy Pod and make sure StatefulSet recovers and data are still there](#destroy-pod-and-make-sure-statefulset-recovers-and-data-are-still-there)
@@ -86,11 +86,14 @@ We will build multiple clusters to show some additional options, but majority of
 
 ### Mixed cluster with standard ACS networking
 Our first cluster will be hybrid Linux and Windows agents, with RBAC enabled and with support for Azure Managed Disks as persistent volumes in Kubernetes. Basic networking will be used with integration to Azure Load Balancer (for Kubernetes LodaBalancer Service).
+First, we need to create a new resource group as well as an Azure service principal. On Azure, acs-engine uses a Service Principal to interact with Azure Resource Manager (ARM). 
 
 ```
 ./acs-engine generate myKubeACS.json
 cd _output/myKubeACS/
 az group create -n mykubeacs -l westeurope
+az ad sp create-for-rbac -n "MyApp" --role contributor --scopes /subscriptions/{SubID}/resourceGroups/mykubeacs
+
 az group deployment create --template-file azuredeploy.json --parameters @azuredeploy.parameters.json -g mykubeacs
 scp azureuser@mykubeacs.westeurope.cloudapp.azure.com:.kube/config ~/.kube/config
 ```
